@@ -1,78 +1,79 @@
-const express = require('express');
-const mysql = require('mysql2');
-const cors = require('cors');
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
 
 const app = express();
-const port = 3000;
+const PORT = 3000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// MySQL connection
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'Adityars@1999',
-  database: 'crm_dashboard'
+// MongoDB Connection
+mongoose.connect(
+  "mongodb+srv://at8482937:nspBF1dxyJgPMXKs@cluster0.5mnpa3p.mongodb.net/crm_dashboard?retryWrites=true&w=majority"
+)
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch((err) => {
+    console.error("❌ MongoDB connection error:", err.message);
+  });
+
+// Mongoose Schema & Model
+const leadSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    lowercase: true,
+  },
+  source: {
+    type: String,
+    default: "Unknown",
+  },
+  score: {
+    type: Number,
+    default: 0,
+  },
+  status: {
+    type: String,
+    enum: ["New", "Qualified", "Opportunity", "Won", "Lost"],
+    required: true,
+  },
+  created_at: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
-// Connect to MySQL
-db.connect(err => {
-  if (err) {
-    console.error('Database connection failed:', err.stack);
-    return;
+const Lead = mongoose.model("Lead", leadSchema);
+
+// Routes
+app.get("/api/leads", async (req, res) => {
+  try {
+    const leads = await Lead.find().sort({ created_at: -1 });
+    res.json(leads);
+  } catch (err) {
+    console.error("GET /api/leads error:", err.message);
+    res.status(500).json({ error: "Failed to fetch leads" });
   }
-  console.log('Connected to MySQL');
-
-  // Create leads table after DB connection
-  const createLeadsTable = `
-    CREATE TABLE IF NOT EXISTS leads (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      email VARCHAR(255) NOT NULL,
-      source VARCHAR(100),
-      score INT,
-      status VARCHAR(50),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  db.query(createLeadsTable, err => {
-    if (err) {
-      console.error('Failed to create leads table:', err);
-    } else {
-      console.log('Leads table created or already exists.');
-    }
-  });
 });
 
-// GET all leads
-app.get('/api/leads', (req, res) => {
-  db.query('SELECT * FROM leads ORDER BY created_at DESC', (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
-});
-
-// POST a new lead
-app.post('/api/leads', (req, res) => {
-  const { name, email, source, score, status } = req.body;
-
-  if (!name || !email) {
-    return res.status(400).json({ error: 'Name and Email are required' });
+app.post("/api/leads", async (req, res) => {
+  try {
+    const newLead = new Lead(req.body);
+    const savedLead = await newLead.save();
+    res.status(201).json(savedLead);
+  } catch (err) {
+    console.error("POST /api/leads error:", err.message);
+    res.status(400).json({ error: err.message }); // Send full validation error
   }
-
-  const query = 'INSERT INTO leads (name, email, source, score, status) VALUES (?, ?, ?, ?, ?)';
-  const values = [name, email, source, score, status];
-
-  db.query(query, values, (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true, id: result.insertId });
-  });
 });
 
 // Start server
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

@@ -8,11 +8,6 @@ A full-stack web application built for managing and tracking marketing leads. De
 
 ---
 
-## 📁 Project Structure
-
-
----
-
 ## ✨ Features
 
 ### 🔧 Backend (Express + MySQL)
